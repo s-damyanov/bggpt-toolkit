@@ -1,5 +1,9 @@
 # bggpt-toolkit
 
+[![CI](https://github.com/s-damyanov/bggpt-toolkit/actions/workflows/ci.yml/badge.svg)](https://github.com/s-damyanov/bggpt-toolkit/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+
 Reliability and safety utilities for building products on [BgGPT](https://bggpt.ai) — INSAIT's
 open Bulgarian LLM, served at `api.bggpt.ai` with an OpenAI-compatible API.
 

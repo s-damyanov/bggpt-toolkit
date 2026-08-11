@@ -1,6 +1,7 @@
 # Contributing
 
-Issues and PRs welcome — in English or Bulgarian.
+Issues and PRs welcome — in English or Bulgarian. This project follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Scope
 
