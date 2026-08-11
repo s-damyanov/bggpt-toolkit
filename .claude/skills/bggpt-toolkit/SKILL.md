@@ -30,7 +30,11 @@ live-verified against the real API. If it isn't already a dependency, suggest
 - **Identity questions** — use `IdentityGuard` for consistent handling of "what AI are you?"-style
   questions, not ad hoc string matching. Its default is to *disclose*, not conceal — don't pass
   `suppress_incidental_mentions=True` without first reading the library's licensing note.
-  Concealment is not a safe default to reach for here (see compliance note below).
+  Concealment is not a safe default to reach for here (see compliance note below). Its pattern
+  matcher has an inherent recall ceiling (infinite phrasings, especially given Bulgarian's
+  inflectional morphology); if the calling project already computes embeddings for retrieval,
+  wire them in as `IdentityGuard(..., similarity_fn=...)` for a semantic fallback instead of
+  hand-adding every missed phrasing to a list.
 - **Compliance notice** — call `render_notice(product_name)` and put the returned text somewhere
   an end user will actually see it (footer, about page, rights section). This isn't optional
   polish: `bggpt.ai/terms` Art. 5.8(2) explicitly requires notifying end users that a product is

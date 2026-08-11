@@ -140,3 +140,55 @@ def test_extra_watched_forms_only_apply_when_suppressing() -> None:
     # defaults are still active alongside the extra form
     _, n2 = guard.redact("Powered by BgGPT.")
     assert n2 == 1
+
+
+def test_which_pronoun_normalization_generalizes() -> None:
+    # None of these exact gender/number forms is a literal entry anywhere in _IDENTITY_Q — they
+    # pass purely because _normalize_which collapses какъв/каква/какво/какви and кой/коя/кое/кои
+    # onto one canonical form each before matching.
+    for q in [
+        "Какви ai си?", "Коя AI си?", "Какви представляваш?", "Каква ai си?",
+        "Кое компания те създаде?",
+    ]:
+        assert is_identity_question(q), q
+
+
+def test_similarity_fn_used_only_as_fallback() -> None:
+    calls: list[str] = []
+
+    def similarity_fn(text: str) -> float:
+        calls.append(text)
+        return 0.9
+
+    # fast-path hit: similarity_fn must not even be called
+    assert is_identity_question("Какъв AI си?", similarity_fn=similarity_fn) is True
+    assert calls == []
+
+    # fast-path miss, similarity_fn above threshold -> True
+    assert is_identity_question(
+        "С какво разговарям в момента?", similarity_fn=similarity_fn
+    ) is True
+    assert calls == ["С какво разговарям в момента?"]
+
+
+def test_similarity_fn_respects_threshold() -> None:
+    miss_text = "С какво разговарям в момента?"
+    assert is_identity_question(miss_text, similarity_fn=lambda t: 0.9, threshold=0.55) is True
+    assert is_identity_question(miss_text, similarity_fn=lambda t: 0.2, threshold=0.55) is False
+
+
+def test_no_similarity_fn_is_unchanged_behavior() -> None:
+    # a fast-path miss with no similarity_fn given still returns False, same as before this
+    # parameter existed
+    assert is_identity_question("С какво разговарям в момента?") is False
+
+
+def test_guard_is_identity_question_uses_stored_similarity_fn() -> None:
+    guard = IdentityGuard(
+        product_name="X", answer_bg="x", answer_en="x",
+        similarity_fn=lambda t: 0.9, similarity_threshold=0.55,
+    )
+    assert guard.is_identity_question("С какво разговарям в момента?") is True
+
+    guard_no_fallback = IdentityGuard(product_name="X", answer_bg="x", answer_en="x")
+    assert guard_no_fallback.is_identity_question("С какво разговарям в момента?") is False

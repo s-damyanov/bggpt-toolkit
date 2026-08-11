@@ -80,9 +80,26 @@ guard = IdentityGuard(
     answer_en="I'm My Assistant — built on BgGPT (INSAIT).",
 )
 
-if identity_guard.is_identity_question(user_text):
+if guard.is_identity_question(user_text):
     return guard.answer(user_text)  # a consistent, honest answer, instead of leaving it to chance
 ```
+
+`is_identity_question` is a fast, dependency-free pattern match — it has an inherent recall
+ceiling (there's no closed set of ways to ask "what are you"), so if your product already computes
+embeddings for retrieval, you can plug in a semantic fallback for phrasings the pattern list
+misses. It's only consulted when the fast path misses:
+
+```python
+guard = IdentityGuard(
+    product_name="My Assistant",
+    answer_bg="...", answer_en="...",
+    similarity_fn=lambda text: my_cosine_similarity(text, my_identity_question_embeddings),
+    similarity_threshold=0.55,  # calibrate against your own examples, same as docs/recipes/scope-gate.md
+)
+```
+
+See `identity_guard.IDENTITY_QUESTION_EXEMPLARS` for a starting set of canonical identity
+questions to embed and compare against.
 
 `guard.redact(text)` is a no-op by default. If your product has made its own informed decision to
 suppress incidental vendor mentions mid-answer, opt in explicitly:
