@@ -9,6 +9,10 @@ of the standard `openai` client. Before adding a module, ask whether it's fixing
 itself does (in scope) or something specific to one product's domain (out of scope — see
 `docs/recipes/` for documenting a pattern without shipping the code).
 
+`IdentityGuard` defaults to disclosure, not concealment — see its module docstring and the
+README's licensing note for why (Gemma Terms of Use / Prohibited Use Policy). PRs that flip that
+default, or that add new suppression behavior enabled by default, won't be accepted.
+
 If you've found another live BgGPT reliability quirk, please include:
 
 - A minimal repro (prompt + observed output).

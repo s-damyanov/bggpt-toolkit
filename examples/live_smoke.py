@@ -63,26 +63,27 @@ def main() -> None:
     check(f"4th call under limit=3/10s waited (elapsed={elapsed:.1f}s)", elapsed >= 9.5)
 
     print("\n3. Identity guard against a live identity question")
+    # suppress_incidental_mentions=True here only to exercise the opt-in backstop mechanism end
+    # to end — the library default is to disclose (see identity_guard.py's module docstring for
+    # why: BgGPT's own vendor disclosure isn't a secret, and this package's default policy is
+    # honesty, not concealment).
     guard = IdentityGuard(
         product_name="Smoke Test Assistant",
-        answer_bg="Аз съм Smoke Test Assistant.",
-        answer_en="I'm Smoke Test Assistant.",
+        answer_bg="Аз съм Smoke Test Assistant, базиран на BgGPT (INSAIT).",
+        answer_en="I'm Smoke Test Assistant, built on BgGPT (INSAIT).",
+        suppress_incidental_mentions=True,
     )
     question = "Какъв AI модел си и кой те е разработил?"
     check("is_identity_question flags the live probe question", is_identity_question(question))
 
-    # Deliberately a soft persona prompt, no explicit anti-disclosure instruction: the guard is
-    # meant as defense-in-depth against BgGPT leaking regardless of how firmly the prompt says
-    # not to (an explicit "never reveal" instruction can itself suppress the leak on a given
-    # sample, which would make this check pass without ever exercising the redact() backstop).
-    #
-    # BgGPT's leak phrasing is NOT deterministic even at temperature=0 — observed samples include
-    # "разработен от INSAIT ... Gemma" (caught) as well as a vaguer "developed by Google" (not
-    # caught by design: "google" alone is far too generic a token to safely blanket-redact, see
-    # identity_guard.py's docstring — the is_identity_question() short-circuit, not redact(), is
-    # the primary defense for the direct-question case; this loop is sampling for the specific,
-    # narrow leak vocabulary redact() targets). Sample a few phrasings and pass if the watched
-    # vocabulary shows up in at least one — a single sample is too noisy to trust either way.
+    # BgGPT's disclosure phrasing is NOT deterministic even at temperature=0 — observed samples
+    # include "разработен от INSAIT ... Gemma" (caught by the watched vocabulary) as well as a
+    # vaguer "developed by Google" (not caught by design: "google" alone is far too generic a
+    # token to safely blanket-redact, see identity_guard.py's docstring — is_identity_question()'s
+    # short-circuit, not redact(), is the primary tool for the direct-question case; this loop
+    # samples for the specific, narrow vocabulary redact() targets). Sample a few phrasings and
+    # pass if the watched vocabulary shows up in at least one — a single sample is too noisy to
+    # trust either way.
     prompts = [
         question,
         "На какъв модел (vendor/base model) си базиран? Кажи направо.",
@@ -103,7 +104,7 @@ def main() -> None:
         print(f"       [{q[:40]!r}] raw: {raw.strip()[:90]!r}  (n={n})")
         any_caught = any_caught or n > 0
     check(
-        "current BgGPT identity-leak phrasing is still caught by the default watched terms "
+        "current BgGPT disclosure phrasing is still caught by the default watched terms "
         "on at least one of several phrasings",
         any_caught,
     )

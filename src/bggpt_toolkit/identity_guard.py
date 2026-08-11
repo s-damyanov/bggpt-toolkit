@@ -1,34 +1,41 @@
-"""Identity guard: stop BgGPT from leaking its own vendor identity mid-answer.
+"""Identity guard: help a product handle BgGPT's inconsistent persona-override behavior.
 
-Failure mode this defends against, observed live on api.bggpt.ai: asked "what AI are you?",
-BgGPT answers with its full baked-in identity ("Аз съм BgGPT, създаден от INSAIT, базиран на
-Gemma-3 27B на Google...") — leaking the underlying model/vendor, regardless of what the system
-prompt says the assistant's product identity should be.
+Observed live on api.bggpt.ai: even when a system prompt sets a custom product persona, asked
+"what AI are you?" BgGPT sometimes answers with its own baked-in identity instead ("Аз съм BgGPT,
+създаден от INSAIT, базиран на Gemma-3 27B..."). This is not a security flaw or a secret being
+exposed — BgGPT is INSAIT's own open, publicly attributed model, and INSAIT plainly wants it known
+as BgGPT. It's a persona-override reliability gap: the model doesn't consistently keep to a custom
+identity you've asked it to adopt, one way or the other, depending on phrasing and temperature.
 
-Two layers, because the two situations need different handling:
+**Default behavior here is to disclose, not conceal.** BgGPT is distributed under the Gemma Terms
+of Use, whose Prohibited Use Policy restricts misleading claims of expertise or capability in
+sensitive areas — health, finance, government services, legal. A product hiding what model
+actually answers a tax or legal question sits closer to that concern than a product that discloses
+it. So:
 
 1. A DIRECT identity question ("какъв AI си?", "who made you?") — `is_identity_question` detects
-   it so the caller can short-circuit with a fixed on-brand answer (`IdentityGuard.answer`)
-   instead of letting the model generate one at all. This is far more robust than scrubbing a
-   freeform vendor spiel after the fact: token-replacing BgGPT's identity paragraph tends to leave
-   incoherent, still-partially-leaking text.
+   it so the caller can short-circuit with a fixed, honest answer (`IdentityGuard.answer`) instead
+   of leaving it to chance what the model says. Write `answer_bg`/`answer_en` to disclose plainly,
+   e.g. "I'm Продукт X, built on BgGPT (INSAIT)." — this guard only makes the answer consistent,
+   it doesn't tell you to hide anything.
 
-2. An INCIDENTAL vendor mention mid-answer — `IdentityGuard.redact` replaces the watched tokens
-   with the product name as a deterministic backstop. Blunt on purpose: these tokens essentially
-   never occur in a legitimate on-topic answer, so a rare awkward phrasing is a fine price for
-   closing the leak.
+2. An INCIDENTAL vendor mention mid-answer is left alone by default. `IdentityGuard.redact` is an
+   *opt-in* backstop (`suppress_incidental_mentions=True`) for products that have made their own
+   informed call to suppress incidental mentions — it's blunt on purpose when enabled, since these
+   tokens essentially never occur in a legitimate on-topic answer.
 
-The default watched terms (`DEFAULT_WATCHED_FORMS`) are BgGPT's own leak signature — its vendor
-(INSAIT), its base model family (Gemma), and its own name — not anything product-specific, so
-they're safe defaults for any product built on BgGPT. Pass `extra_watched_forms` to add more.
+`DEFAULT_WATCHED_FORMS` names BgGPT's own vendor (INSAIT), its base model family (Gemma), and its
+own name — intrinsic to BgGPT itself, not to whatever product wraps it. Pass `extra_watched_forms`
+to add more, only relevant if you enable `suppress_incidental_mentions`.
 """
 
 from __future__ import annotations
 
 import re
 
-# BgGPT's leak signature: its own name, its vendor, and the base model family it discloses when
-# asked. Intrinsic to BgGPT itself, so safe as defaults regardless of what product wraps it.
+# BgGPT's own disclosure vocabulary: its name, its vendor, and the base model family it names when
+# asked. Intrinsic to BgGPT itself, so a reasonable default set regardless of what product wraps
+# it — only used if `suppress_incidental_mentions=True`.
 DEFAULT_WATCHED_FORMS = ("bggpt", "bg-gpt", "bg gpt", "insait", "инсайт", "gemma", "гема", "гемма")
 
 # Phrases that strongly indicate a DIRECT question about the assistant's own AI identity/maker.
@@ -80,7 +87,12 @@ def _pattern_for(form: str) -> str:
 
 
 class IdentityGuard:
-    """Configure once per product with its own name and on-brand answer text."""
+    """Configure once per product with its own name and an honest, on-brand answer.
+
+    `suppress_incidental_mentions` defaults to False (disclose): `redact()` and
+    `safe_flush_point()` are no-ops unless you explicitly opt in. See the module docstring for
+    why disclosure is the default rather than concealment.
+    """
 
     def __init__(
         self,
@@ -88,10 +100,12 @@ class IdentityGuard:
         answer_bg: str,
         answer_en: str,
         extra_watched_forms: tuple[str, ...] = (),
+        suppress_incidental_mentions: bool = False,
     ) -> None:
         self.product_name = product_name
         self.answer_bg = answer_bg
         self.answer_en = answer_en
+        self.suppress_incidental_mentions = suppress_incidental_mentions
 
         forms = tuple(DEFAULT_WATCHED_FORMS) + tuple(extra_watched_forms)
         patterns = list(dict.fromkeys(_pattern_for(f) for f in forms))  # de-dupe, keep order
@@ -104,25 +118,34 @@ class IdentityGuard:
         self._max_token_len = max(len(f) for f in forms)
 
     def answer(self, question: str) -> str:
-        """Fixed on-brand identity reply, in the user's language."""
+        """Fixed, consistent identity reply, in the user's language. Write `answer_bg`/
+        `answer_en` to disclose the underlying model honestly if that matters for your product."""
         return self.answer_bg if _is_cyrillic(question) else self.answer_en
 
     def redact(self, text: str) -> tuple[str, int]:
-        """Return (redacted_text, num_redactions). Idempotent — `product_name` should not itself
-        contain any watched token, so re-running is a no-op."""
+        """Return (text, num_redactions). A no-op unless `suppress_incidental_mentions=True` —
+        see the class docstring. When enabled, idempotent: `product_name` should not itself
+        contain a watched token, so re-running is a no-op."""
+        if not self.suppress_incidental_mentions:
+            return text, 0
         return self._watched.subn(self.product_name, text)
 
     def safe_flush_point(self, buffer: str, upto: int) -> int:
-        """Largest index <= `upto` such that buffer[:idx] is safe to redact and flush now without
-        risking that a watched token is still arriving across the boundary.
+        """Largest index <= `upto` such that buffer[:idx] is safe to flush now without risking
+        that a watched token, still arriving across a delta boundary, gets redacted in two halves.
 
-        A live BgGPT stream arrives token by token, so "BgGPT" can appear as "bg" then "gpt" in
-        two separate deltas — neither slice contains a full watched token, so `redact()` on each
-        would miss it and the leak would flush in two halves. This holds back the shortest
-        trailing run of buffer[:upto] that, sitting at a left boundary, is a prefix of some
-        watched form (so it could still grow into one). Holding back only delays those few
-        characters — the next delta (or the final flush) releases them — it never drops text.
+        A no-op (returns `upto` unchanged) unless `suppress_incidental_mentions=True` — with
+        nothing being redacted, there is nothing to protect a boundary for.
+
+        When enabled: a live BgGPT stream arrives token by token, so "BgGPT" can appear as "bg"
+        then "gpt" in two separate deltas — neither slice contains a full watched token, so
+        `redact()` on each would miss it. This holds back the shortest trailing run of
+        buffer[:upto] that, sitting at a left boundary, is a prefix of some watched form (so it
+        could still grow into one). Holding back only delays those few characters — the next
+        delta (or the final flush) releases them — it never drops text.
         """
+        if not self.suppress_incidental_mentions:
+            return upto
         end = upto
         lo = max(0, end - self._max_token_len)
         for start in range(lo, end):

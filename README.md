@@ -11,9 +11,13 @@ BgGPT's API is fully OpenAI-compatible, so plain access needs no SDK — the sta
 Python client already works, pointed at `https://api.bggpt.ai/v1`. What's missing is tooling
 around a few reliability quirks specific to BgGPT itself, found live-testing it in production:
 
-- **Vendor identity leaks.** Asked "what AI are you?", BgGPT answers with its full baked-in
-  identity ("Аз съм BgGPT, създаден от INSAIT, базиран на Gemma-3...") — leaking the underlying
-  model/vendor regardless of what your system prompt says your product's identity should be.
+- **Persona-override inconsistency.** Even with a system prompt asking for a custom persona,
+  asked "what AI are you?" BgGPT sometimes answers with its own baked-in identity instead ("Аз съм
+  BgGPT, създаден от INSAIT, базиран на Gemma-3..."). This isn't a security flaw — BgGPT is
+  INSAIT's own openly attributed model, and INSAIT plainly wants it known as BgGPT — it's just
+  inconsistent about which identity it adopts. See [`identity_guard.py`](src/bggpt_toolkit/identity_guard.py)
+  and the [licensing note](#licensing-note) below for why this package's default is to make that
+  disclosure *consistent*, not to help you conceal it.
 - **Fabricated tool calls.** Given a question that clearly needs a tool, under soft prompting
   BgGPT can narrate a *fake* call as literal answer text (`"[get_status()]"`) instead of emitting
   a real structured `tool_calls` delta.
@@ -40,7 +44,7 @@ pip install git+https://github.com/s-damyanov/bggpt-toolkit.git
 from bggpt_toolkit import client
 
 c = client()  # reads BGGPT_API_KEY from the environment, or pass api_key=...
-resp = c.chat.completions.create(model="bggpt-27b", messages=[{"role": "user", "content": "Здравей!"}])
+resp = c.chat.completions.create(model="bggpt-gemma-3-27b-fp8", messages=[{"role": "user", "content": "Здравей!"}])
 ```
 
 An `async_client()` counterpart returns an `AsyncOpenAI`.
@@ -60,25 +64,37 @@ A ready-made instance at BgGPT's stated limit is available as
 
 ### Identity guard
 
+Default behavior is **disclosure, not concealment** — see [licensing note](#licensing-note) below
+for why.
+
 ```python
 from bggpt_toolkit import IdentityGuard
 
 guard = IdentityGuard(
     product_name="My Assistant",
-    answer_bg="Аз съм „Моят асистент“ — ...",
-    answer_en="I'm My Assistant — ...",
+    answer_bg="Аз съм „Моят асистент“ — базиран на BgGPT (INSAIT).",
+    answer_en="I'm My Assistant — built on BgGPT (INSAIT).",
 )
 
 if identity_guard.is_identity_question(user_text):
-    return guard.answer(user_text)  # short-circuit, no model call
+    return guard.answer(user_text)  # a consistent, honest answer, instead of leaving it to chance
+```
 
-# Otherwise, redact any incidental vendor mention in the model's answer:
+`guard.redact(text)` is a no-op by default. If your product has made its own informed decision to
+suppress incidental vendor mentions mid-answer, opt in explicitly:
+
+```python
+guard = IdentityGuard(
+    product_name="My Assistant",
+    answer_bg="...", answer_en="...",
+    suppress_incidental_mentions=True,
+)
 clean_text, n = guard.redact(model_text)
 ```
 
-For streaming answers, `guard.safe_flush_point(buffer, upto)` tells you how much of a growing
-buffer is safe to flush now without risking a watched token (e.g. "BgGPT") arriving split across
-two deltas ("bg" then "gpt").
+For streaming answers with suppression enabled, `guard.safe_flush_point(buffer, upto)` tells you
+how much of a growing buffer is safe to flush now without risking a watched token (e.g. "BgGPT")
+arriving split across two deltas ("bg" then "gpt"). It's a no-op too when suppression is off.
 
 ### Tool-calling loop
 
@@ -93,7 +109,7 @@ async def execute_tool(name: str, arguments: dict) -> str:
 
 async for event in run_tool_loop(
     client,
-    model="bggpt-27b",
+    model="bggpt-gemma-3-27b-fp8",
     messages=messages,           # mutated in place with each turn
     tools=my_chat_tools,
     execute_tool=execute_tool,
@@ -113,6 +129,19 @@ keeps calling tools every round still can't leave you with total silence.
 An out-of-scope/off-topic gate (deciding whether a question is even worth sending to the model)
 is a genuinely useful pattern, but its keyword lists are inherently per-product — there's nothing
 generic to ship. See [`docs/recipes/scope-gate.md`](docs/recipes/scope-gate.md) for the pattern.
+
+## Licensing note
+
+BgGPT is distributed under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms), which
+incorporates Google's [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy)
+by reference. That policy restricts misleading claims of expertise or capability, particularly in
+sensitive areas such as health, finance, government services, or legal. If your product operates
+in one of those areas, concealing that it's an AI system — or which model actually answers a
+question — is a materially different, and riskier, choice than disclosing it. This package
+defaults `IdentityGuard` to disclosure for that reason; suppression is opt-in and is your call to
+make for your own product, not something this package recommends.
+
+This is not legal advice — read the actual terms if this applies to your use case.
 
 ## Development
 
