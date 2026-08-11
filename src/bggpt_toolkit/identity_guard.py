@@ -59,6 +59,19 @@ _IDENTITY_Q = (
     "who made you", "who created you", "who developed you", "who built you", "who trained you",
     "what are you", "who are you", "what's your name", "what is your name", "which company",
     "are you gpt", "are you chatgpt", "are you gemma", "what llm", "which llm",
+    # Found live: three real user phrasings that fell through both this list and the fallback
+    # rule below, each missing for a different reason.
+    # 1. "какво си ти" — the neuter grammatical-gender form of "what are you" was missing; only
+    #    the masculine/feminine "какъв/каква си ти" were listed.
+    "какво си ти", "какво представляваш",
+    # 2. "кой AI си ти" — "кой" here means "which", parallel to "какъв ai" above, but only the
+    #    "какъв"-form was listed. This is a distinct identity question, not a "who made you"
+    #    question, so the fallback rule below (which needs a maker-verb stem) was never going to
+    #    catch it regardless of word order.
+    "кой ai",
+    # 3. "какъв модел използваш" — a second-person-verb variant of "какъв модел си" using
+    #    "използваш"/"ползваш" (you use) instead of "си" (you are).
+    "какъв модел използваш", "какъв модел ползваш", "кой модел използваш", "кой модел ползваш",
 )
 
 # Second rule: a "who ... you" subject next to a maker-verb stem, to catch inflections the fixed
