@@ -96,6 +96,22 @@ For streaming answers with suppression enabled, `guard.safe_flush_point(buffer, 
 how much of a growing buffer is safe to flush now without risking a watched token (e.g. "BgGPT")
 arriving split across two deltas ("bg" then "gpt"). It's a no-op too when suppression is off.
 
+### End-user notice
+
+`IdentityGuard` only covers what happens if a user directly asks "what AI are you?" — most never
+do, so it likely isn't sufficient by itself for the [Art. 5.8(2) notice requirement](#licensing-note)
+below. `notice.render()` returns ready-to-adapt text for a static notice (footer, about page,
+rights section) instead:
+
+```python
+from bggpt_toolkit import render_notice
+
+text_bg = render_notice("My Assistant")            # lang="bg" is the default
+text_en = render_notice("My Assistant", lang="en")
+```
+
+Adapt the wording to your product — see the module's docstring for what it does and doesn't cover.
+
 ### Tool-calling loop
 
 ```python
@@ -147,10 +163,12 @@ Two source of terms apply to anyone building on `api.bggpt.ai`, both worth readi
 
 The disclosure obligation is about your *product* giving end users notice somewhere — a footer, an
 about page, a rights/ToS section — not necessarily that the chatbot itself must volunteer it in
-every reply. `IdentityGuard.answer()` is one legitimate way to satisfy it conversationally; a
-static notice elsewhere works too. Either way, concealment isn't a compliant starting point, which
-is why this package defaults to disclosure; suppression (`suppress_incidental_mentions=True`) is
-opt-in and is your call to make for your own product, not something this package recommends.
+every reply. `IdentityGuard.answer()` covers the direct-question case; `render_notice()` (see
+[usage](#end-user-notice) above) gives you ready-to-adapt text for the static notice, which is
+likely the part that actually satisfies Art. 5.8(2) since most users never ask directly. Either
+way, concealment isn't a compliant starting point, which is why this package defaults to
+disclosure; suppression (`suppress_incidental_mentions=True`) is opt-in and is your call to make
+for your own product, not something this package recommends.
 
 This is not legal advice — read the actual terms above if this applies to your use case.
 

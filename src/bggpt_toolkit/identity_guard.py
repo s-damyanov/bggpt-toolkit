@@ -15,10 +15,10 @@ of Use (Art. 1.7), whose Prohibited Use Policy separately restricts misleading c
 or capability in sensitive areas — health, finance, government services, legal.
 
 Note that Art. 5.8(2) is about the *product* giving End Users notice somewhere (a footer, an about
-page, a ToS/privacy page — see e.g. how a project might document this in its own "rights and model
-used" section), not necessarily that the chatbot itself must volunteer it in every conversation.
-This guard's `answer()` is one legitimate way to satisfy it conversationally; a static notice
-elsewhere works too. Either way, defaulting to concealment isn't a compliant starting point. So:
+page, a ToS/privacy page), not necessarily that the chatbot itself must volunteer it in every
+conversation — most users never ask directly, so this guard's `answer()` alone likely isn't
+sufficient on its own. See `bggpt_toolkit.notice.render()` for ready-to-adapt text for that static
+notice. Either way, defaulting to concealment isn't a compliant starting point. So:
 
 1. A DIRECT identity question ("какъв AI си?", "who made you?") — `is_identity_question` detects
    it so the caller can short-circuit with a fixed, honest answer (`IdentityGuard.answer`) instead
