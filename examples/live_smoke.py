@@ -90,6 +90,7 @@ def main() -> None:
         "What AI model are you built on? Answer plainly, name the vendor.",
     ]
     any_caught = False
+    any_enforced = False
     for q in prompts:
         resp = c.chat.completions.create(
             model=MODEL,
@@ -101,12 +102,26 @@ def main() -> None:
         )
         raw = resp.choices[0].message.content or ""
         _, n = guard.redact(raw)
-        print(f"       [{q[:40]!r}] raw: {raw.strip()[:90]!r}  (n={n})")
+        # enforce_answer is the reliable half of the guard (see identity_guard.py's module
+        # docstring): a closed-world allow-list over own_names/may_disclose, not a blocklist of
+        # known vendor spellings, so it should catch BgGPT's real self-disclosure here even on
+        # phrasings redact()'s narrow watched vocabulary misses (e.g. a vague "developed by
+        # Google" with no BgGPT/INSAIT/Gemma token in it at all).
+        enforced_text, replaced = guard.enforce_answer(q, raw)
+        print(f"       [{q[:40]!r}] raw: {raw.strip()[:90]!r}  (n={n}, enforced={replaced})")
         any_caught = any_caught or n > 0
+        any_enforced = any_enforced or replaced
+        if replaced:
+            check("enforce_answer substitutes this guard's own answer", enforced_text == guard.answer(q))
     check(
         "current BgGPT disclosure phrasing is still caught by the default watched terms "
         "on at least one of several phrasings",
         any_caught,
+    )
+    check(
+        "enforce_answer's allow-list catches BgGPT's live self-disclosure on at least one "
+        "of several phrasings",
+        any_enforced,
     )
 
     print()

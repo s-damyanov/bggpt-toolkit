@@ -78,16 +78,59 @@ guard = IdentityGuard(
     product_name="My Assistant",
     answer_bg="Аз съм „Моят асистент“ — базиран на BgGPT (INSAIT).",
     answer_en="I'm My Assistant — built on BgGPT (INSAIT).",
+    own_names=("Моят асистент",),  # every spelling the product calls itself
 )
 
 if guard.is_identity_question(user_text):
-    return guard.answer(user_text)  # a consistent, honest answer, instead of leaving it to chance
+    return guard.answer(user_text)      # cheap pre-filter: skips the API call entirely
+
+text = call_bggpt(...)
+text, replaced = guard.enforce_answer(user_text, text)   # the part that actually guarantees it
 ```
 
+Use both halves. Detecting the *question* is the weak side of this problem — there is no closed
+set of ways to ask "what are you", in either language — so `is_identity_question` can only
+approximate it. Detecting the *claim* is the strong side, and `enforce_answer` is built as a
+**closed-world allow-list, not a blocklist**: rather than scanning for known-bad vendor names, it
+extracts whatever name an answer actually claims and checks it against what your product is
+allowed to claim (`own_names`, plus `may_disclose` for an honest "built on BgGPT" attribution). A
+blocklist can only ever catch identities someone thought to enumerate in advance — it cannot catch
+a model released after the list was written, or a wholly invented name like "Асистент-Про 3000,
+разработен от Балкан Софт", which names no real vendor at all. The allow-list catches both,
+because neither is in the list of names *this* product is allowed to claim, whatever they are.
+
+That matters because a missed question is exactly when BgGPT improvises — including, observed
+live at `temperature=0`, a confident fabrication that names a vendor with no connection to it at
+all ("Аз съм GPT-3.5 на OpenAI"). `enforce_answer` replaces any disallowed claim with your own
+`answer()`; a correct disclosure (naming only `own_names`/`may_disclose`) passes through
+unchanged, so re-running this is a no-op. It needs whole sentences, so a streaming caller should
+hold back the first sentence until it can be checked — in practice identity claims land at the
+very start.
+
+`may_disclose` defaults to `identity_guard.DEFAULT_MAY_DISCLOSE` — BgGPT's own name and vendor,
+the truthful attribution chain Art. 5.8(2) requires. It deliberately excludes Gemma: BgGPT
+genuinely is Gemma-derived, but a product that wants to volunteer that in-chat should say so
+explicitly —
+
+```python
+guard = IdentityGuard(
+    product_name="My Assistant",
+    answer_bg="...", answer_en="...",
+    may_disclose=identity_guard.DEFAULT_MAY_DISCLOSE + ("Gemma",),
+)
+```
+
+For debugging or logging, `identity_guard.identity_claims(text)` returns every claim found
+(allowed or not) as `IdentityClaim(kind, name, sentence)` — `contains_identity_claim`/
+`enforce_answer` are thin wrappers that apply the allow-list on top of it.
+
 `is_identity_question` is a fast, dependency-free pattern match — it has an inherent recall
-ceiling (there's no closed set of ways to ask "what are you"), so if your product already computes
-embeddings for retrieval, you can plug in a semantic fallback for phrasings the pattern list
-misses. It's only consulted when the fast path misses:
+ceiling, so if your product already computes embeddings for retrieval, you can plug in a semantic
+fallback for phrasings the pattern list misses. It's only consulted when the fast path misses,
+and it only ever affects latency (a wasted API call), never correctness, now that `enforce_answer`
+exists — so it's fine to leave low-recall if you don't have embeddings to hang a fallback off of.
+See [`docs/recipes/identity-prefilter.md`](docs/recipes/identity-prefilter.md) for better options
+than growing the phrase list by hand, including reusing a scope gate you may already have:
 
 ```python
 guard = IdentityGuard(
