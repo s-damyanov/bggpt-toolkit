@@ -77,6 +77,14 @@ def test_identity_question_detected() -> None:
         assert is_identity_question(q), q
 
 
+def test_identity_question_detected_live_false_negatives() -> None:
+    # Found live against a real deployment: each of these fell through the old pattern list for a
+    # different reason (missing grammatical gender, "which" vs "what" phrasing, a second-person
+    # verb variant other than "си") — see identity_guard.py's _IDENTITY_Q comment.
+    for q in ["Какво си ти?", "Кой AI си ти?", "Какъв модел използваш?"]:
+        assert is_identity_question(q), q
+
+
 def test_answer_matches_language(guard: IdentityGuard) -> None:
     assert "Тестов асистент" in guard.answer("Какъв AI си?")
     assert guard.answer("What AI are you?").startswith("I'm")
