@@ -140,6 +140,17 @@ async for event in run_tool_loop(
 narrate a fake one as text) and always appends one tools-omitted final round, so a model that
 keeps calling tools every round still can't leave you with total silence.
 
+## For AI coding agents
+
+[`.claude/skills/bggpt-toolkit/SKILL.md`](.claude/skills/bggpt-toolkit/SKILL.md) packages the same
+hard-won knowledge above (which modules to reach for, BgGPT's non-deterministic identity-leak
+behavior, the Art. 5.8(2) notice requirement) as a Claude Code Agent Skill, so a coding agent
+working in your project reaches for this library correctly instead of reimplementing its fixes
+from scratch.
+
+It isn't discovered automatically just by installing this package — copy the
+`.claude/skills/bggpt-toolkit/` directory into your own project's `.claude/skills/` to use it.
+
 ## What's *not* in here
 
 An out-of-scope/off-topic gate (deciding whether a question is even worth sending to the model)
