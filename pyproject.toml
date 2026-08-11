@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bggpt-toolkit"
+version = "0.1.0"
+description = "Reliability and safety utilities for building products on BgGPT (api.bggpt.ai)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "Strahil Damyanov" }]
+keywords = ["bggpt", "insait", "bulgarian", "llm", "openai"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = ["openai>=1.0"]
+
+[project.urls]
+Homepage = "https://github.com/s-damyanov/bggpt-toolkit"
+Issues = "https://github.com/s-damyanov/bggpt-toolkit/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bggpt_toolkit"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
