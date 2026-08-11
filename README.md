@@ -132,16 +132,27 @@ generic to ship. See [`docs/recipes/scope-gate.md`](docs/recipes/scope-gate.md) 
 
 ## Licensing note
 
-BgGPT is distributed under the [Gemma Terms of Use](https://ai.google.dev/gemma/terms), which
-incorporates Google's [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy)
-by reference. That policy restricts misleading claims of expertise or capability, particularly in
-sensitive areas such as health, finance, government services, or legal. If your product operates
-in one of those areas, concealing that it's an AI system — or which model actually answers a
-question — is a materially different, and riskier, choice than disclosing it. This package
-defaults `IdentityGuard` to disclosure for that reason; suppression is opt-in and is your call to
-make for your own product, not something this package recommends.
+Two source of terms apply to anyone building on `api.bggpt.ai`, both worth reading directly:
 
-This is not legal advice — read the actual terms if this applies to your use case.
+- **INSAIT's own [Terms of Service](https://bggpt.ai/terms)** for the API. Art. 5.8(2) requires
+  that you "explicitly notify End Users that the applications/services/products they access are
+  based on the BgGPT Model" — a stated term of using the API, not an inference. (Art. 5.8(8)(a)
+  also prohibits bulk/automated scraping and overload requests — one more reason to always run
+  requests through `ratelimit.py` rather than skip it.)
+- Accepting those terms also binds you to Google's **[Gemma Terms of Use](https://ai.google.dev/gemma/terms)**
+  (Art. 1.7), whose [Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy)
+  separately restricts misleading claims of expertise or capability in sensitive areas — health,
+  finance, government services, legal — and bars unlicensed practice of professions like legal,
+  financial, or medical/health advice.
+
+The disclosure obligation is about your *product* giving end users notice somewhere — a footer, an
+about page, a rights/ToS section — not necessarily that the chatbot itself must volunteer it in
+every reply. `IdentityGuard.answer()` is one legitimate way to satisfy it conversationally; a
+static notice elsewhere works too. Either way, concealment isn't a compliant starting point, which
+is why this package defaults to disclosure; suppression (`suppress_incidental_mentions=True`) is
+opt-in and is your call to make for your own product, not something this package recommends.
+
+This is not legal advice — read the actual terms above if this applies to your use case.
 
 ## Development
 

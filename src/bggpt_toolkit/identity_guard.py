@@ -7,11 +7,18 @@ exposed — BgGPT is INSAIT's own open, publicly attributed model, and INSAIT pl
 as BgGPT. It's a persona-override reliability gap: the model doesn't consistently keep to a custom
 identity you've asked it to adopt, one way or the other, depending on phrasing and temperature.
 
-**Default behavior here is to disclose, not conceal.** BgGPT is distributed under the Gemma Terms
-of Use, whose Prohibited Use Policy restricts misleading claims of expertise or capability in
-sensitive areas — health, finance, government services, legal. A product hiding what model
-actually answers a tax or legal question sits closer to that concern than a product that discloses
-it. So:
+**Default behavior here is to disclose, not conceal.** INSAIT's own Terms of Service for the API
+(https://bggpt.ai/terms, Art. 5.8(2)) require that you "explicitly notify End Users that the
+applications/services/products they access are based on the BgGPT Model" — this is a stated term
+of using the API, not an inference. Accepting those terms also binds you to Google's Gemma Terms
+of Use (Art. 1.7), whose Prohibited Use Policy separately restricts misleading claims of expertise
+or capability in sensitive areas — health, finance, government services, legal.
+
+Note that Art. 5.8(2) is about the *product* giving End Users notice somewhere (a footer, an about
+page, a ToS/privacy page — see e.g. how a project might document this in its own "rights and model
+used" section), not necessarily that the chatbot itself must volunteer it in every conversation.
+This guard's `answer()` is one legitimate way to satisfy it conversationally; a static notice
+elsewhere works too. Either way, defaulting to concealment isn't a compliant starting point. So:
 
 1. A DIRECT identity question ("какъв AI си?", "who made you?") — `is_identity_question` detects
    it so the caller can short-circuit with a fixed, honest answer (`IdentityGuard.answer`) instead
