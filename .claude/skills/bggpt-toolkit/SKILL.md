@@ -28,13 +28,26 @@ live-verified against the real API. If it isn't already a dependency, suggest
   tool is known to be needed, and always appends a tools-omitted bonus round so the loop can't
   silently exhaust its round budget and leave the user with no answer at all.
 - **Identity questions** — use `IdentityGuard` for consistent handling of "what AI are you?"-style
-  questions, not ad hoc string matching. Its default is to *disclose*, not conceal — don't pass
-  `suppress_incidental_mentions=True` without first reading the library's licensing note.
-  Concealment is not a safe default to reach for here (see compliance note below). Its pattern
-  matcher has an inherent recall ceiling (infinite phrasings, especially given Bulgarian's
-  inflectional morphology); if the calling project already computes embeddings for retrieval,
-  wire them in as `IdentityGuard(..., similarity_fn=...)` for a semantic fallback instead of
-  hand-adding every missed phrasing to a list.
+  questions, not ad hoc string matching. Wire in **both** halves: `is_identity_question()` before
+  the call as a cheap pre-filter, and `enforce_answer(question, text)` on the result. The input
+  half has an inherent recall ceiling (infinite phrasings, especially given Bulgarian's
+  inflectional morphology) so it can't be the guarantee; the output half is a closed-world
+  allow-list, so it is — it extracts whatever name an answer actually claims and checks it against
+  `own_names`/`may_disclose`, which catches a fabricated identity ("Асистент-Про 3000, разработен
+  от Балкан Софт") just as well as a real vendor's name, since neither is on the list. With
+  `enforce_answer` wired in, a missed question costs one wasted API call instead of a wrong
+  answer. If the calling project already computes embeddings for retrieval, also wire them in as
+  `IdentityGuard(..., similarity_fn=...)` rather than hand-adding every missed phrasing to a list.
+  Pass `own_names=(...)` with every spelling the product calls itself, especially a
+  Bulgarian-localized one — `enforce_answer` checks a claimed identity against these (plus
+  `product_name`) to tell the product's own disclosure apart from a leaked identity, and an
+  unlisted form makes a correct answer read as a leak. `may_disclose` (default
+  `DEFAULT_MAY_DISCLOSE`: BgGPT/INSAIT) is the separate allow-list for an honest attribution claim
+  ("built on BgGPT") — it deliberately excludes Gemma, so pass your own tuple if the product wants
+  to volunteer that too.
+  The default is to *disclose*, not conceal — don't pass `suppress_incidental_mentions=True`
+  without first reading the library's licensing note. Concealment is not a safe default to reach
+  for here (see compliance note below).
 - **Compliance notice** — call `render_notice(product_name)` and put the returned text somewhere
   an end user will actually see it (footer, about page, rights section). This isn't optional
   polish: `bggpt.ai/terms` Art. 5.8(2) explicitly requires notifying end users that a product is
@@ -46,9 +59,12 @@ live-verified against the real API. If it isn't already a dependency, suggest
 - Identity-leak phrasing is **not deterministic**, even at `temperature=0`. The same question can
   get an answer naming BgGPT/INSAIT/Gemma explicitly, a vague "developed by Google", or — observed
   live — a fully hallucinated wrong vendor ("built on OpenAI's GPT-3.5"). Don't design a fix that
-  assumes one canonical leak string to pattern-match; `IdentityGuard`'s `is_identity_question()`
-  short-circuit (answering before the model is ever called) is the reliable defense, not scrubbing
-  the model's output after the fact.
+  assumes one canonical leak string, or even a fixed set of vendor names, to pattern-match against
+  — a blocklist only catches identities someone thought to enumerate in advance, and the next
+  fabrication need not reuse a real vendor name at all. `IdentityGuard.enforce_answer()` instead
+  extracts whatever name a first-person self-reference or attribution clause actually claims and
+  checks it against what the product is allowed to claim (`own_names`/`may_disclose`) — closed-world
+  by design, so an unenumerated fabrication is caught the same way a known vendor's name is.
 - Tool-call fabrication and the round-budget-exhaustion failure mode are specific, live-verified
   BgGPT behaviors (see `run_tool_loop`'s docstring for the exact mechanism) — don't assume generic
   retry/error-handling logic already covers them.
