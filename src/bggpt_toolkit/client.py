@@ -15,8 +15,8 @@ BGGPT_BASE_URL = "https://api.bggpt.ai/v1"
 
 
 def is_bggpt_model(model: str) -> bool:
-    """True for BgGPT model names (e.g. "bggpt-27b"), as opposed to other engines a caller
-    might be routing between (e.g. an OpenAI model)."""
+    """True for BgGPT model names (e.g. "bggpt-gemma-3-27b-fp8"), as opposed to other engines a
+    caller might be routing between (e.g. an OpenAI model)."""
     return model.startswith("bggpt-")
 
 

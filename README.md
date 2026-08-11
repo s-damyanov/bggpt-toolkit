@@ -159,7 +159,7 @@ generic to ship. See [`docs/recipes/scope-gate.md`](docs/recipes/scope-gate.md) 
 
 ## Licensing note
 
-Two source of terms apply to anyone building on `api.bggpt.ai`, both worth reading directly:
+Two sources of terms apply to anyone building on `api.bggpt.ai`, both worth reading directly:
 
 - **INSAIT's own [Terms of Service](https://bggpt.ai/terms)** for the API. Art. 5.8(2) requires
   that you "explicitly notify End Users that the applications/services/products they access are
