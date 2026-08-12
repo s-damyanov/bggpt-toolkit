@@ -69,6 +69,8 @@ async def run_tool_loop(
         buffer = ""
         tool_calls: dict[int, dict[str, str | None]] = {}
         async for chunk in stream:
+            if not chunk.choices:
+                continue  # usage-only trailer chunk: some OpenAI-compatible servers emit one
             delta = chunk.choices[0].delta
             if delta.tool_calls:
                 for tc in delta.tool_calls:
