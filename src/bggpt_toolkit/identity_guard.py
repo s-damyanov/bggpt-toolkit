@@ -160,16 +160,29 @@ _IDENTITY_Q_PATTERNS = (
 # in canonical pronoun form too, per `_normalize_which`.
 #
 # The Bulgarian entries pair the interrogative with a second-person *object* ("кой те"), which is
-# what keeps the rule off third-party questions. English needs the same pairing assembled from two
-# separate signals, since word order puts the object after the verb ("who built you"): requiring
-# only "who" + a maker stem, as this rule originally did, fires on "who created ICAO Annex 6?",
-# "who developed the tax code?" and every other question about who made some *third* thing.
+# what keeps the rule off third-party questions. English used to assemble the same pairing from two
+# separate co-occurrence signals ("who" anywhere + a maker stem anywhere + "you"/"your" anywhere),
+# which correctly rejected "who created ICAO Annex 6?" (no "you" at all) but not phrasings where
+# "you" is present yet unrelated to the verb — measured live: "who developed your accounting
+# software?", "who created the invoice template you sent?", and "who made your decision about my
+# refund?" all fired `True`, because English word order puts the object after the verb and the old
+# rule never checked adjacency, and the possessive "your" counted as readily as the bare pronoun.
+# `_EN_MAKER_YOU_RE` below requires the bare pronoun "you" to sit directly after the verb (active:
+# "who built you") or directly after "who" (passive: "who were you built by"), so a possessive or
+# an unrelated "you" elsewhere in the sentence no longer counts. Genuine possessive phrasings
+# ("who is your creator/developer") are already exact entries in `_IDENTITY_Q` above and are
+# unaffected by this change.
 _YOU_SUBJECT_BG = ("кой те", "кой ви", "кой ти", "кой компания те", "кой фирма те")
-_EN_WHO = re.compile(r"(?<!\w)whom?(?!\w)", re.IGNORECASE)
-_EN_YOU = re.compile(r"(?<!\w)you(?:r|rs|rself)?(?!\w)", re.IGNORECASE)
-_MAKER_STEMS = (
-    "разработ", "създа", "направи", "обучи", "изгради", "програмира", "стои зад",
-    "made", "created", "developed", "built", "trained", "designed",
+_MAKER_STEMS_BG = ("разработ", "създа", "направи", "обучи", "изгради", "програмира", "стои зад")
+_EN_MAKER_VERBS = r"(?:made|created|developed|built|trained|designed)"
+# Two orders: active ("who ... made you") and passive ("who ... you were made by"), each requiring
+# the verb and "you" to be adjacent rather than merely co-present anywhere in the sentence. The
+# `{0,3}`/`{0,2}` gaps allow a few intervening words ("who exactly created you", "who was it that
+# built you") without letting the verb bind to some other object first.
+_EN_MAKER_YOU_RE = re.compile(
+    r"(?<!\w)whom?\b(?:\s+\S+){0,3}?\s+" + _EN_MAKER_VERBS + r"\s+you(?!\w)"
+    r"|(?<!\w)whom?\b(?:\s+\S+){0,2}?\s+you\s+(?:were\s+|was\s+|are\s+)?" + _EN_MAKER_VERBS + r"\b",
+    re.IGNORECASE,
 )
 
 
@@ -182,9 +195,10 @@ _IDENTITY_Q_RE = re.compile(
     re.IGNORECASE,
 )
 _MAKER_STEMS_RE = re.compile(
-    # Bulgarian stems match as prefixes ("разработ" -> "разработил"), so only the left boundary
-    # is asserted; the English verbs are already full words.
-    r"(?<!\w)(?:" + "|".join(re.escape(s) for s in _MAKER_STEMS) + ")",
+    # These stems match as prefixes ("разработ" -> "разработил"), so only the left boundary is
+    # asserted. Bulgarian-only now — the English side is handled by `_EN_MAKER_YOU_RE` above,
+    # which needs the verb adjacent to "you" rather than merely co-present in the sentence.
+    r"(?<!\w)(?:" + "|".join(re.escape(s) for s in _MAKER_STEMS_BG) + ")",
     re.IGNORECASE,
 )
 
@@ -230,9 +244,9 @@ def is_identity_question(
     q = _normalize_which(text.lower())
     if _IDENTITY_Q_RE.search(q):
         return True
-    if _MAKER_STEMS_RE.search(q) and (
-        any(s in q for s in _YOU_SUBJECT_BG) or (_EN_WHO.search(q) and _EN_YOU.search(q))
-    ):
+    if _MAKER_STEMS_RE.search(q) and any(s in q for s in _YOU_SUBJECT_BG):
+        return True
+    if _EN_MAKER_YOU_RE.search(q):
         return True
     if similarity_fn is not None:
         return similarity_fn(text) >= threshold
