@@ -206,6 +206,15 @@ def test_identity_question_no_false_positive_on_domain_questions() -> None:
         "Коя компания те обслужва?",
         "Кой модел си купих?",
         "На какъв модел се облага доходът?",
+        # Found by review of the English maker-verb fallback rule: it required only "who" + a
+        # maker verb + "you"/"your" co-occurring anywhere in the string, so a possessive "your"
+        # bound to an unrelated noun counted the same as the bare pronoun bound to the verb. All
+        # five measured `True` before the rule was made adjacency-anchored.
+        "Who developed your accounting software?",
+        "Who created the invoice template you sent?",
+        "Who made your decision about my refund?",
+        "Who trained your staff?",
+        "Who built the ICAO Annex 6 framework for your industry?",
     ]:
         assert not is_identity_question(q), q
 
@@ -216,6 +225,9 @@ def test_identity_question_recall_additions() -> None:
         "Разкажи ми за себе си", "Are you an AI?", "Are you human?", "Who is your creator?",
         "Какъв модел си?", "Какъв модел си ти?", "На какъв модел си базиран?",
         "What are you based on?", "Who are you?",
+        # Passive phrasing and a few intervening words — both still require the verb and "you"
+        # adjacent to each other, just in the other order or with filler between them.
+        "Who were you trained by?", "Who exactly created you?", "Who was it that built you?",
     ]:
         assert is_identity_question(q), q
 
