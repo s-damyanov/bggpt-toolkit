@@ -100,6 +100,32 @@ async def test_no_tools_returns_after_one_round() -> None:
     assert "".join(e["text"] for e in events if e["type"] == "delta") == "Hi there."
 
 
+async def test_usage_only_trailer_chunk_does_not_crash() -> None:
+    # Some OpenAI-compatible servers emit a final chunk with choices == [] carrying only usage
+    # stats. Indexing chunk.choices[0] unconditionally raises IndexError mid-stream on that chunk.
+    responses = [
+        [
+            _chunk(content="Hi"),
+            _chunk(content=" there."),
+            SimpleNamespace(choices=[]),  # usage-only trailer
+        ]
+    ]
+    client = FakeClient(responses)
+
+    async def execute_tool(name: str, arguments: dict) -> str:
+        raise AssertionError("should not be called when there are no tools")
+
+    events = [
+        e
+        async for e in run_tool_loop(
+            client, model="bggpt-27b", messages=[{"role": "user", "content": "hi"}], tools=[],
+            execute_tool=execute_tool, max_rounds=3,
+        )
+    ]
+
+    assert "".join(e["text"] for e in events if e["type"] == "delta") == "Hi there."
+
+
 async def test_invalid_tool_arguments_reported_without_calling_executor() -> None:
     responses = [
         [_chunk(tool_calls=[_tool_call_delta(0, id="call1", name="get_status", arguments="{bad")])],
