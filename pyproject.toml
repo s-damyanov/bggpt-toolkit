@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bggpt-toolkit"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Reliability and safety utilities for building products on BgGPT (api.bggpt.ai)"
 readme = "README.md"
 license = "MIT"
@@ -26,6 +26,9 @@ Issues = "https://github.com/s-damyanov/bggpt-toolkit/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6"]
+
+[tool.hatch.version]
+path = "src/bggpt_toolkit/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/bggpt_toolkit"]
